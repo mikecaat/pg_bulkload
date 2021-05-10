@@ -54,9 +54,15 @@ jobs:
           build-essential                 \
           libpam-dev                      \
           libkrb5-dev                     \
+          libssl-dev                      \
+          libreadline-dev                 \
+          libselinux-dev                  \
+          libedit-dev                     \
+          zlib1g-dev                      \
           postgresql-${{ env.PGVERSION }} \
           postgresql-server-dev-${{ env.PGVERSION }}
         pg_config
+        sudo find / -name "elog.h"
 
     - uses: actions/checkout@v2
 
