@@ -65,8 +65,6 @@ jobs:
           zlib1g-dev                      \
           postgresql-${{ env.PGVERSION }} \
           postgresql-server-dev-${{ env.PGVERSION }}
-        pg_config
-        sudo find / -name "elog.h"
 
     - uses: actions/checkout@v2
 
