@@ -43,6 +43,10 @@ jobs:
         [ -z "${versions[${{ env.BRANCH }}]}" ] && exit 1         # check if the key exists
         echo "PGVERSION=${versions[${{ env.BRANCH }}]}" >> $GITHUB_ENV
 
+    - name: remove pre-installed postgresql packages
+      shell: bash -xe {0}
+      run: sudo apt-get remove postgresql*
+
     - name: download packages for building
       shell: bash -xe {0}
       run: |
