@@ -16,10 +16,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      matrix:
-        PGVERSION:                # TODO: build with master branch
-          - 13                    # TODO: build with another version
 
     steps:
     - name: cat version
@@ -48,7 +44,6 @@ jobs:
         echo "PGVERSION=${versions[${{ env.BRANCH }}]}" >> $GITHUB_ENV
 
     - name: download packages for building
-      if: steps.cache-package.outputs.cache-hit != 'true'
       shell: bash -xe {0}
       run: |
         # https://www.postgresql.org/download/linux/ubuntu/
