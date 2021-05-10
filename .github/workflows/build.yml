@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - REL_UNDER_PG13_STABLE
   pull_request:
     branches:
       - master
+      - REL_UNDER_PG13_STABLE
   schedule:
     - cron: "0 1 * * SUN"         # only master
 
@@ -38,7 +40,12 @@ jobs:
     - name: set build postgresql version
       shell: bash -xe {0}
       run: |
-        echo "PGVERSION=${{ matrix.PGVERSION }}" >> $GITHUB_ENV
+        declare -A versions=(
+          ["master"]="13"
+          ["REL_UNDER_PG13_STABLE"]="12"
+        )
+        [ -z "${versions[${{ env.BRANCH }}]}" ] && exit 1         # check if the key exists
+        echo "PGVERSION=${versions[${{ env.BRANCH }}]}" >> $GITHUB_ENV
 
     - name: download packages for building
       if: steps.cache-package.outputs.cache-hit != 'true'
