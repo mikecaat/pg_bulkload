@@ -542,6 +542,7 @@ RemoteSourceRead(RemoteSource *self, void *buffer, size_t len)
 		{
 			/* Try to receive another message */
 			int			mtype;
+			int			maxmsglen;
 
 readmessage:
 			mtype = Wrappered_pq_getbyte();
@@ -549,7 +550,13 @@ readmessage:
 				ereport(ERROR,
 						(errcode(ERRCODE_CONNECTION_FAILURE),
 					 errmsg("unexpected EOF on client connection")));
-			if (pq_getmessage(self->buffer, 0))
+// 9626325da5e8e23ff90091bc96535495d350f06e
+#if PG_VERSION_NUM >= 140000
+			maxmsglen = PQ_LARGE_MESSAGE_LIMIT;
+#else
+			maxmsglen = 0;
+#endif
+			if (pq_getmessage(self->buffer, maxmsglen))
 				ereport(ERROR,
 						(errcode(ERRCODE_CONNECTION_FAILURE),
 					 errmsg("unexpected EOF on client connection")));

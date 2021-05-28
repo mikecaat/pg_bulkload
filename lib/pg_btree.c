@@ -41,8 +41,10 @@
 
 #include "logger.h"
 
-#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 150000
 #error unsupported PostgreSQL version
+#elif PG_VERSION_NUM >= 140000
+#include "nbtree/nbtsort-14.c"
 #elif PG_VERSION_NUM >= 130000
 #include "nbtree/nbtsort-13.c"
 #elif PG_VERSION_NUM >= 120000
@@ -93,8 +95,9 @@ typedef struct BTReader
 
 static BTSpool **IndexSpoolBegin(ResultRelInfo *relinfo, bool enforceUnique);
 static void IndexSpoolEnd(Spooler *self);
-static void IndexSpoolInsert(BTSpool **spools, TupleTableSlot *slot, ItemPointer tupleid, EState *estate);
-
+static void IndexSpoolInsert(BTSpool **spools, TupleTableSlot *slot,
+							 ItemPointer tupleid, EState *estate,
+							 ResultRelInfo *relinfo);
 static IndexTuple BTSpoolGetNextItem(BTSpool *spool, IndexTuple itup, bool *should_free);
 static int BTReaderInit(BTReader *reader, Relation rel);
 static void BTReaderTerm(BTReader *reader);
@@ -141,9 +144,16 @@ SpoolerOpen(Spooler *self,
 #endif
 
 	self->estate = CreateExecutorState();
+	// 1375422c7826a2bf387be29895e961614f69de4b
+#if PG_VERSION_NUM >= 140000
+	self->estate->es_opened_result_relations = 
+		lappend(self->estate->es_opened_result_relations, self->relinfo);
+#else
 	self->estate->es_num_result_relations = 1;
 	self->estate->es_result_relations = self->relinfo;
+	// a04daa97a4339c38e304cd6164d37da540d665a8
 	self->estate->es_result_relation_info = self->relinfo;
+#endif
 
 #if PG_VERSION_NUM >= 120000
 	self->slot = MakeSingleTupleTableSlot(RelationGetDescr(rel), &TTSOpsHeapTuple);
@@ -164,8 +174,13 @@ SpoolerClose(Spooler *self)
 
 	/* Terminate spooler. */
 	ExecDropSingleTupleTableSlot(self->slot);
+#if PG_VERSION_NUM >= 140000
+	if (self->relinfo)
+		ExecCloseResultRelations(self->estate);
+#else
 	if (self->estate->es_result_relation_info)
 		ExecCloseIndices(self->estate->es_result_relation_info);
+#endif
 	FreeExecutorState(self->estate);
 
 	/* Close and release members. */
@@ -181,13 +196,23 @@ SpoolerClose(Spooler *self)
 void
 SpoolerInsert(Spooler *self, HeapTuple tuple)
 {
+	ResultRelInfo *relinfo;
+
 	/* Spool keys in the tuple */
 #if PG_VERSION_NUM >= 120000
 	ExecStoreHeapTuple(tuple, self->slot, false);
 #else
 	ExecStoreTuple(tuple, self->slot, InvalidBuffer, false);
 #endif
-	IndexSpoolInsert(self->spools, self->slot, &(tuple->t_self), self->estate);
+
+#if PG_VERSION_NUM >= 140000
+	relinfo = self->relinfo;
+#else
+	relinfo = self->estate->es_result_relation_info;
+#endif
+	IndexSpoolInsert(self->spools, self->slot,
+					 &(tuple->t_self), self->estate,
+					 relinfo);
 	BULKLOAD_PROFILE(&prof_writer_index);
 }
 
@@ -260,13 +285,21 @@ IndexSpoolEnd(Spooler *self)
 		{
 			Oid		indexOid = RelationGetRelid(indices[i]);
 
+#if PG_VERSION_NUM >= 140000
+			// a3dc926009be833ea505eebd77ce4b72fe708b18
+			ReindexParams params = {0};
+#endif
+
 			/* Close index before reindex to pass CheckTableNotInUse. */
 			relation_close(indices[i], NoLock);
 #if PG_VERSION_NUM >= 90500
 			persistence = indices[i]->rd_rel->relpersistence;
 #endif
 			indices[i] = NULL;
-#if PG_VERSION_NUM >= 90500
+
+#if PG_VERSION_NUM >= 140000
+			reindex_index(indexOid, false, persistence, &params);
+#elif PG_VERSION_NUM >= 90500
 			reindex_index(indexOid, false, persistence, 0);
 #else
 			reindex_index(indexOid, false);
@@ -285,9 +318,10 @@ IndexSpoolEnd(Spooler *self)
  *	Copied from ExecInsertIndexTuples.
  */
 static void
-IndexSpoolInsert(BTSpool **spools, TupleTableSlot *slot, ItemPointer tupleid, EState *estate)
+IndexSpoolInsert(BTSpool **spools, TupleTableSlot *slot,
+				ItemPointer tupleid, EState *estate,
+				ResultRelInfo *relinfo)
 {
-	ResultRelInfo  *relinfo;
 	int				i;
 	int				numIndices;
 	RelationPtr		indices;
@@ -297,7 +331,6 @@ IndexSpoolInsert(BTSpool **spools, TupleTableSlot *slot, ItemPointer tupleid, ES
 	/*
 	 * Get information from the result relation relinfo structure.
 	 */
-	relinfo = estate->es_result_relation_info;
 	numIndices = relinfo->ri_NumIndices;
 	indices = relinfo->ri_IndexRelationDescs;
 	indexInfoArray = relinfo->ri_IndexRelationInfo;
