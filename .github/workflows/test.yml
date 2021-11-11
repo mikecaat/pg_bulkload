@@ -33,18 +33,10 @@ jobs:
          cat /etc/os-release
          uname -a
 
-    - name: cache common tools
-      id: cache-common-tools
-      uses: actions/cache@v2
-      with:
-        path: "~/common-tools"
-        key: ${{ env.CACHE_VERSION }}
-
-    - name: install common tools
+    - name: install common tools     # TODO: cache
       shell: bash -xe {0}
       run: |
         sudo apt-get -y install libxml2-utils
-        mkdir -p ~/common-tools
 
     - name: get current branch name
       shell: bash -xe {0}
@@ -79,7 +71,6 @@ jobs:
       shell: bash -xe {0}
       run: |
         test_major_version=${{ matrix.PG_MAJOR_VERSIONS }}
-        echo ${test_major_version}
         latest_versions=${{ env.LATEST_VERSIONS }}
 
         declare -A versions
@@ -88,7 +79,6 @@ jobs:
           with_minor=$(echo $ver | cut -d: -f2)
           versions[${major}]=${with_minor}
         done
-        echo ${versions[@]}
         echo "PGVERSION=${versions[$test_major_version]}" >> $GITHUB_ENV
 
     - name: cache builded resources
