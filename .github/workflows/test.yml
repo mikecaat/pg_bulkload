@@ -51,6 +51,8 @@ jobs:
         curl -o $FILE $URL
 
         num_of_versions=$(xmllint --html --xpath "count(//table[@class='table table-striped']/tbody/tr)" $FILE 2> /dev/null)
+        
+        xmllint --html $FILE
 
         latest_versions="" # use string type because github action doesn't support array
         for (( i=1; i <= $num_of_versions; i++ )); do
