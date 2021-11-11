@@ -78,7 +78,7 @@ jobs:
     - name: set build postgresql version which is the latest minor version
       shell: bash -xe {0}
       run: |
-        test_major_version=${{ env.PG_MAJOR_VERSIONS }}
+        test_major_version=${{ matrix.PG_MAJOR_VERSIONS }}
         echo ${test_major_version}
         latest_versions=${{ env.LATEST_VERSIONS }}
 
