@@ -82,7 +82,7 @@ jobs:
         latest_versions=${{ env.LATEST_VERSIONS }}
 
         declare -A versions
-        for ver in ${ ${latest_versions//,/ }; do
+        for ver in ${latest_versions//,/ }; do
           major=$(echo $ver | cut -d: -f1)
           with_minor=$(echo $ver | cut -d: -f2)
           versions[${major}]=${with_minor}
