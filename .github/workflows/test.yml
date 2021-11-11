@@ -66,7 +66,8 @@ jobs:
     - name: set build postgresql version which is the latest minor version
       shell: bash -xe {0}
       run: |
-        latest_versions = ${{ env.LATEST_VERSIONS }}
+        test_major_version=${{ env.PG_MAJOR_VERSIONS }}
+        latest_versions=${{ env.LATEST_VERSIONS }}
 
         declare -A versions
         for ver in ${ ${latest_versions//,/ }; do
@@ -75,8 +76,6 @@ jobs:
           versions[${major}]=${with_minor}
         done
         echo "PGVERSION=${versions[$major_version]}" >> $GITHUB_ENV
-      with:
-        major_version: ${{ matrix.PG_MAJOR_VERSIONS }}
 
     - name: cache builded resources
       id: cache-postgresql-core
