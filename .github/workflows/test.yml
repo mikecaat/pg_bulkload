@@ -33,6 +33,19 @@ jobs:
          cat /etc/os-release
          uname -a
 
+    - name: cache common tools
+      id: cache-common tools
+      uses: actions/cache@v2
+      with:
+        path: "~/common-tools"
+        key: ${{ env.CACHE_VERSION }}
+
+    - name: install common tools
+      shell: bash -xe {0}
+      run: |
+        sudo apt-get -y install libxml2-utils
+        mkdir -p ~/common-tools
+
     - name: get current branch name
       shell: bash -xe {0}
       run: |
@@ -50,9 +63,7 @@ jobs:
 
         curl -o $FILE $URL
 
-        xmllint --html $FILE
         num_of_versions=$(xmllint --html --xpath "count(//table[@class='table table-striped']/tbody/tr)" $FILE 2> /dev/null)
-
         latest_versions="" # use string type because github action doesn't support array
         for (( i=1; i <= $num_of_versions; i++ )); do
             major=$(xmllint --html --xpath "//table[@class='table table-striped']/tbody/tr[$i]/td[1]/text()" $FILE 2> /dev/null)
