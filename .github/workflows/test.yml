@@ -79,6 +79,7 @@ jobs:
       shell: bash -xe {0}
       run: |
         test_major_version=${{ env.PG_MAJOR_VERSIONS }}
+        echo ${test_major_version}
         latest_versions=${{ env.LATEST_VERSIONS }}
 
         declare -A versions
@@ -87,6 +88,7 @@ jobs:
           with_minor=$(echo $ver | cut -d: -f2)
           versions[${major}]=${with_minor}
         done
+        echo ${versions[@]}
         echo "PGVERSION=${versions[$test_major_version]}" >> $GITHUB_ENV
 
     - name: cache builded resources
