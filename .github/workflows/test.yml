@@ -87,7 +87,7 @@ jobs:
           with_minor=$(echo $ver | cut -d: -f2)
           versions[${major}]=${with_minor}
         done
-        echo "PGVERSION=${versions[$major_version]}" >> $GITHUB_ENV
+        echo "PGVERSION=${versions[$test_major_version]}" >> $GITHUB_ENV
 
     - name: cache builded resources
       id: cache-postgresql-core
