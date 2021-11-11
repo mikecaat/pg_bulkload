@@ -34,7 +34,7 @@ jobs:
          uname -a
 
     - name: cache common tools
-      id: cache-common tools
+      id: cache-common-tools
       uses: actions/cache@v2
       with:
         path: "~/common-tools"
