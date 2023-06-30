@@ -217,8 +217,6 @@ BinaryParserRead(BinaryParser *self, Checker *checker)
 	/* Skip first offset lines in the input file */
 	if (unlikely(self->need_offset > 0))
 	{
-		int		i;
-
 		for (i = 0; i < self->need_offset; i++)
 		{
 			int		len;

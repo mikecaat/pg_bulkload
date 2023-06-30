@@ -49,7 +49,7 @@
 #include "access/xloginsert.h"
 #endif
 
-#if PG_VERSION_NUM >= 100000
+#if PG_VERSION_NUM >= 100000 && PG_VERSION_NUM < 160000
 #include "utils/regproc.h"
 #endif
 
@@ -121,7 +121,7 @@ static int	DirectWriterSendQuery(DirectWriter *self, PGconn *conn, char *queueNa
 #define LS_TOTAL_CNT(ls)	((ls)->ls.exist_cnt + (ls)->ls.create_cnt)
 
 /* Signature of static functions */
-static int	open_data_file(RelFileNode rnode, bool istemp, BlockNumber blknum);
+static int	open_data_file(RelFileLocator rnode, bool istemp, BlockNumber blknum);
 static void	flush_pages(DirectWriter *loader);
 static void	close_data_file(DirectWriter *loader);
 static void	UpdateLSF(DirectWriter *loader, BlockNumber num);
@@ -197,7 +197,7 @@ DirectWriterInit(DirectWriter *self)
 	 */
 	ls = &self->ls;
 	ls->ls.relid = self->base.relid;
-	ls->ls.rnode = self->base.rel->rd_node;
+	ls->ls.rnode = self->base.rel->rd_locator;
 	ls->ls.exist_cnt = RelationGetNumberOfBlocks(self->base.rel);
 	ls->ls.create_cnt = 0;
 
@@ -622,12 +622,12 @@ flush_pages(DirectWriter *loader)
 
 /**
  * @brief Open the next data file and returns its descriptor.
- * @param rnode  [in] RelFileNode of target relation.
+ * @param rnode  [in] RelFileLocator of target relation.
  * @param blknum [in] Block number to seek.
  * @return File descriptor of the last data file.
  */
 static int
-open_data_file(RelFileNode rnode, bool istemp, BlockNumber blknum)
+open_data_file(RelFileLocator rnode, bool istemp, BlockNumber blknum)
 {
 	int			fd = -1;
 	int			ret;
@@ -635,8 +635,8 @@ open_data_file(RelFileNode rnode, bool istemp, BlockNumber blknum)
 	char	   *fname = NULL;
 
 #if PG_VERSION_NUM >= 90100
-	RelFileNodeBackend	bknode;
-	bknode.node = rnode;
+	RelFileLocatorBackend	bknode;
+	bknode.locator = rnode;
 	bknode.backend = istemp ? MyBackendId : InvalidBackendId;
 	fname = relpath(bknode, MAIN_FORKNUM);
 #else

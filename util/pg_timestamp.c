@@ -204,7 +204,7 @@ pg_timestamp_in(PG_FUNCTION_ARGS)
 	/*
 	 * Adjust the value
 	 */
-	AdjustTimestampForTypmod(&result, typmod);
+	AdjustTimestampForTypmod(&result, typmod, NULL);
 
 	/*
 	 * Return the result value

@@ -370,10 +370,13 @@ CheckerInit(Checker *checker, Relation rel, TupleChecker *tchecker)
 	TupleDesc       desc;
 	RangeTblEntry   *rte;
 	List            *range_table = NIL;
+	List            *perm_infos = NIL;
+	int i;
 #if PG_VERSION_NUM >= 80400
 	TupleDesc       tupDesc;
-	int             attnums, i;
+	int             attnums;
 #endif
+	RTEPermissionInfo *perminfo;
 
 	checker->tchecker = tchecker;
 
@@ -427,8 +430,16 @@ CheckerInit(Checker *checker, Relation rel, TupleChecker *tchecker)
 #if PG_VERSION_NUM >= 90100
         rte->relkind = rel->rd_rel->relkind;
 #endif
-        rte->requiredPerms = ACL_INSERT;
+
+		// a61b1f74823c9c4f79c95226a461f1e7a367764b
+		// f75cec4fff877ef24e4932a628fc974f3116ed16
+		perminfo = makeNode(RTEPermissionInfo);
+		perminfo->relid = RelationGetRelid(rel);
+		perminfo->requiredPerms = ACL_INSERT;
+		perm_infos = list_make1(perminfo);
+		rte->perminfoindex = list_length(perm_infos);
         range_table = list_make1(rte);
+
 
 #if PG_VERSION_NUM >= 80400
         tupDesc = RelationGetDescr(rel);
@@ -436,7 +447,7 @@ CheckerInit(Checker *checker, Relation rel, TupleChecker *tchecker)
         for(i = 0; i <= attnums; i++) 
         {
 #if PG_VERSION_NUM >= 90500
-			rte->insertedCols = bms_add_member(rte->insertedCols, i);
+			perminfo->insertedCols = bms_add_member(perminfo->insertedCols, i);
 #else
 			rte->modifiedCols = bms_add_member(rte->modifiedCols, i);
 #endif
@@ -448,12 +459,12 @@ CheckerInit(Checker *checker, Relation rel, TupleChecker *tchecker)
          * This is used for permission check, but currently pg_bulkload
          * is called only from super user and so the below code maybe
          * is not essential. */
-        ExecCheckRTPerms(range_table, true);
+        ExecCheckPermissions(range_table, perm_infos, true);
 #endif
 
 		/* Some APIs have changed significantly as of v12. */
 #if PG_VERSION_NUM >= 120000
-		ExecInitRangeTable(checker->estate, range_table);
+		ExecInitRangeTable(checker->estate, range_table, perm_infos);
 		checker->slot = MakeSingleTupleTableSlot(desc, &TTSOpsHeapTuple);
 #else
 		checker->estate->es_range_table = range_table;
@@ -463,8 +474,6 @@ CheckerInit(Checker *checker, Relation rel, TupleChecker *tchecker)
 
 	if (!checker->has_constraints && checker->has_not_null)
 	{
-		int	i;
-
 		checker->desc = CreateTupleDescCopy(desc);
 		for (i = 0; i < desc->natts; i++)
 #if PG_VERSION_NUM >= 110000

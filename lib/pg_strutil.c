@@ -13,6 +13,7 @@
 #include "catalog/namespace.h"
 #include "catalog/pg_type.h"
 #include "catalog/pg_proc.h"
+#include "catalog/pg_namespace.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "parser/parse_func.h"
@@ -29,7 +30,7 @@
 #include "access/htup_details.h"
 #endif
 
-#if PG_VERSION_NUM >= 100000
+#if PG_VERSION_NUM >= 100000 && PG_VERSION_NUM < 160000
 #include "utils/regproc.h"
 #endif
 
@@ -672,12 +673,13 @@ ParseFunction(const char *value, bool argistype)
 	pp = (Form_pg_proc) GETSTRUCT(ftup);
 
 	/* Check permission to access and call function. */
-	aclresult = pg_namespace_aclcheck(pp->pronamespace, GetUserId(), ACL_USAGE);
+	// c727f511bd7bf3c58063737bcf7a8f331346f253
+	aclresult = object_aclcheck(NamespaceRelationId, pp->pronamespace, GetUserId(), ACL_USAGE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   get_namespace_name(pp->pronamespace));
 
-	aclresult = pg_proc_aclcheck(ret.oid, GetUserId(), ACL_EXECUTE);
+	aclresult = object_aclcheck(ProcedureRelationId, ret.oid, GetUserId(), ACL_EXECUTE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_FUNCTION,
 					   get_func_name(ret.oid));

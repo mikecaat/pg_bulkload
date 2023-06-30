@@ -41,8 +41,10 @@
 
 #include "logger.h"
 
-#if PG_VERSION_NUM >= 160000
+#if PG_VERSION_NUM >= 170000
 #error unsupported PostgreSQL version
+#elif PG_VERSION_NUM >= 160000
+#include "nbtree/nbtsort-16.c"
 #elif PG_VERSION_NUM >= 150000
 #include "nbtree/nbtsort-15.c"
 #elif PG_VERSION_NUM >= 140000
@@ -800,9 +802,10 @@ BTReaderInit(BTReader *reader, Relation rel)
 	 * smgropen *after* RelationSetNewRelfilenode.
 	 */
 	memset(&reader->smgr, 0, sizeof(reader->smgr));
-#if PG_VERSION_NUM >= 90100
-	reader->smgr.smgr_rnode.node = rel->rd_node;
-	reader->smgr.smgr_rnode.backend =
+#if PG_VERSION_NUM >= 160000
+	// b0a55e43299c4ea2a9a8c757f9c26352407d0ccc
+	reader->smgr.smgr_rlocator.locator = rel->rd_locator;
+	reader->smgr.smgr_rlocator.backend =
 		rel->rd_backend == MyBackendId ? MyBackendId : InvalidBackendId;
 #else
 	reader->smgr.smgr_rnode = rel->rd_node;
@@ -811,7 +814,9 @@ BTReaderInit(BTReader *reader, Relation rel)
 
 	reader->blkno = InvalidBlockNumber;
 	reader->offnum = InvalidOffsetNumber;
-	reader->page = palloc(BLCKSZ);
+	// faeedbcefd40bfdf314e048c425b6d9208896d90
+	reader->page = (Page) palloc_aligned(BLCKSZ, PG_IO_ALIGN_SIZE, 0);
+
 
 	/*
 	 * Read meta page and check sanity of it.

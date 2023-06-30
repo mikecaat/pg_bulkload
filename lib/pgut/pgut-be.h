@@ -12,6 +12,9 @@
 
 #include "fmgr.h"
 #include "utils/tuplestore.h"
+#if PG_VERSION_NUM >= 160000
+#include "utils/regproc.h"
+#endif
 
 #ifndef WIN32
 
@@ -50,7 +53,6 @@ CppConcat(pg_finfo_,funcname) (void) \
 extern int no_such_variable
 
 #endif
-
 
 #if PG_VERSION_NUM < 80300
 
@@ -182,9 +184,15 @@ extern Datum ExecFetchSlotTupleDatum(TupleTableSlot *slot);
 #define RelationSetNewRelfilenode(rel, xid) \
 	RelationSetNewRelfilenode((rel), (rel->rd_rel->relpersistence), \
 		(xid), (xid))
-#else
+#elif PG_VERSION_NUM < 160000
 #define RelationSetNewRelfilenode(rel, xid) \
 	RelationSetNewRelfilenode((rel), (rel->rd_rel->relpersistence))
+#else
+#define RelationSetNewRelfilenode(rel, xid) \
+	RelationSetNewRelfilenumber((rel), (rel->rd_rel->relpersistence))
+// 858e776c84f48841e7e16fba7b690b76e54f3675
+#define stringToQualifiedNameList(str) \
+    stringToQualifiedNameList((str), NULL)  // "pg_bulkload")
 #endif
 
 #if PG_VERSION_NUM < 80400

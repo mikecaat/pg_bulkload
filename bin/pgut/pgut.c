@@ -1149,7 +1149,7 @@ pgut_atexit_push(pgut_atexit_callback callback, void *userdata)
 {
 	pgut_atexit_item *item;
 
-	AssertArg(callback != NULL);
+	Assert(callback != NULL);
 
 	item = pgut_new(pgut_atexit_item);
 	item->callback = callback;
@@ -1241,8 +1241,8 @@ appendStringInfoVA_c(StringInfo str, const char *fmt, va_list args)
 int
 appendStringInfoFile(StringInfo str, FILE *fp)
 {
-	AssertArg(str != NULL);
-	AssertArg(fp != NULL);
+	Assert(str != NULL);
+	Assert(fp != NULL);
 
 	for (;;)
 	{
@@ -1268,8 +1268,8 @@ appendStringInfoFile(StringInfo str, FILE *fp)
 int
 appendStringInfoFd(StringInfo str, int fd)
 {
-	AssertArg(str != NULL);
-	AssertArg(fd != -1);
+	Assert(str != NULL);
+	Assert(fd != -1);
 
 	for (;;)
 	{

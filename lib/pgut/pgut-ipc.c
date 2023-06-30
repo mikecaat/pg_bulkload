@@ -26,6 +26,9 @@
 #include "storage/spin.h"
 #include "miscadmin.h"
 
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
 #ifdef SHM_SHARE_MMU			/* use intimate shared memory on Solaris */
 #define PG_SHMAT_FLAGS			SHM_SHARE_MMU
 #else

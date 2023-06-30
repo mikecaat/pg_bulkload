@@ -371,12 +371,10 @@ CSVParserRead(CSVParser *self, Checker *checker)
 	{
 		int		len;
 		int		skipped = 0;
-		bool	inCR = false;
+		inCR = false;
 
 		while ((len = SourceRead(self->source, self->rec_buf, self->buf_len - 1)) > 0)
 		{
-			int		i;
-
 			for (i = 0; i < len; i++)
 			{
 				if (self->rec_buf[i] == '\r')

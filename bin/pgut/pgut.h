@@ -122,16 +122,13 @@ extern void CHECK_FOR_INTERRUPTS(void);
  * Assert
  */
 #undef Assert
-#undef AssertArg
 #undef AssertMacro
 
 #ifdef USE_ASSERT_CHECKING
 #define Assert(x)		assert(x)
-#define AssertArg(x)	assert(x)
 #define AssertMacro(x)	assert(x)
 #else
 #define Assert(x)		((void) 0)
-#define AssertArg(x)	((void) 0)
 #define AssertMacro(x)	((void) 0)
 #endif
 

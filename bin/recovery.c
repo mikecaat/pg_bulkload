@@ -47,7 +47,7 @@ extern char  *DataDir;
 /* Entry point for the recovery. */
 extern int	LoaderRecoveryMain(void);
 
-static void GetSegmentPath(char path[MAXPGPATH], RelFileNode rnode, int segno);
+static void GetSegmentPath(char path[MAXPGPATH], RelFileLocator rnode, int segno);
 
 /* Determins if the recovery is necessary, and then overwrites data file pages with the vacant one if needed. */
 static void StartLoaderRecovery(void);
@@ -62,7 +62,7 @@ static DBState GetDBClusterState(const char *fname);
 static void GetLoadStatusInfo(const char *lsfpath, LoadStatus * ls);
 
 /* Overwrite data pages with a vacant page. */
-static void ClearLoadedPage(RelFileNode rnode,
+static void ClearLoadedPage(RelFileLocator rnode,
 							BlockNumber blkbeg,
 							BlockNumber blkend);
 
@@ -78,7 +78,7 @@ static void LoaderCreateLockFile(const char *filename,
 								 bool isDDLock, const char *refName);
 
 /* Check that the header fields of a page appear valid. */
-bool PageHeaderIsValid(PageHeader page);
+bool PageHeaderIsValid(Page page);
 
 
 /**
@@ -392,7 +392,7 @@ GetLoadStatusInfo(const char *lsfpath, LoadStatus * ls)
  * @return void
  */
 static void
-ClearLoadedPage(RelFileNode rnode, BlockNumber blkbeg, BlockNumber blkend)
+ClearLoadedPage(RelFileLocator rnode, BlockNumber blkbeg, BlockNumber blkend)
 {
 	BlockNumber segno;				/* data file segment no */
 	char		segpath[MAXPGPATH];	/* data file name to open */
@@ -557,7 +557,7 @@ IsPageCreatedByLoader(Page page)
 {
 	PageHeader	targetBlock = (PageHeader) page;
 
-	if (!PageHeaderIsValid(targetBlock))
+	if (!PageHeaderIsValid(page))
 		return true;
 
 	if (targetBlock->pd_lsn.xlogid == 0 && targetBlock->pd_lsn.xrecoff == 0)
@@ -576,7 +576,7 @@ IsPageCreatedByLoader(Page page)
  *		  + backend/port/pg_shmem.c:196
  *	   - PageInit()				 No change
  *		  + backend/storage/page/bufpage.c:30
- *	   - PageHeaderIsValid		 No change
+ *	   - PageHeaderIsValid		 No change     // need to update? 96ef3b8ff1cf1950e897fd2f766d4bd9ef0d5d56
  *		  + backend/storage/page/bufpage.c:68
  *
  *------------------------------------------------------------------------*/
@@ -910,21 +910,24 @@ PageInit(Page page, Size pageSize, Size specialSize)
  * will clean up such a page and make it usable.
  */
 bool
-PageHeaderIsValid(PageHeader page)
+PageHeaderIsValid(Page page)
 {
+	PageHeader pageheader;
 	char	   *pagebytes;
 	int			i;
+
+	pageheader = (PageHeader) page;
 
 	/*
 	 * Check normal case
 	 */
 	if (PageGetPageSize(page) == BLCKSZ &&
 		PageGetPageLayoutVersion(page) == PG_PAGE_LAYOUT_VERSION &&
-		page->pd_lower >= SizeOfPageHeaderData &&
-		page->pd_lower <= page->pd_upper &&
-		page->pd_upper <= page->pd_special &&
-		page->pd_special <= BLCKSZ &&
-		page->pd_special == MAXALIGN(page->pd_special))
+		pageheader->pd_lower >= SizeOfPageHeaderData &&
+		pageheader->pd_lower <= pageheader->pd_upper &&
+		pageheader->pd_upper <= pageheader->pd_special &&
+		pageheader->pd_special <= BLCKSZ &&
+		pageheader->pd_special == MAXALIGN(pageheader->pd_special))
 		return true;
 
 	/*
@@ -940,24 +943,46 @@ PageHeaderIsValid(PageHeader page)
 }
 
 static void
-GetSegmentPath(char path[MAXPGPATH], RelFileNode rnode, int segno)
+GetSegmentPath(char path[MAXPGPATH], RelFileLocator rnode, int segno)
 {
+#if PG_VERSION_NUM >= 160000
+	if (rnode.spcOid == GLOBALTABLESPACE_OID)
+#else
 	if (rnode.spcNode == GLOBALTABLESPACE_OID)
+#endif
 	{
 		/* Shared system relations live in {datadir}/global */
+#if PG_VERSION_NUM >= 160000
+		snprintf(path, MAXPGPATH, "global/%u", rnode.relNumber);
+#else
 		snprintf(path, MAXPGPATH, "global/%u", rnode.relNode);
+#endif
 	}
+#if PG_VERSION_NUM >= 160000
+	else if (rnode.spcOid == DEFAULTTABLESPACE_OID)
+#else
 	else if (rnode.spcNode == DEFAULTTABLESPACE_OID)
+#endif
 	{
 		/* The default tablespace is {datadir}/base */
+#if PG_VERSION_NUM >= 160000
+		snprintf(path, MAXPGPATH, "base/%u/%u",
+					 rnode.dbOid, rnode.relNumber);
+#else
 		snprintf(path, MAXPGPATH, "base/%u/%u",
 					 rnode.dbNode, rnode.relNode);
+#endif
 	}
 	else
 	{
 		/* All other tablespaces are accessed via symlinks */
+#if PG_VERSION_NUM >= 160000
+		snprintf(path, MAXPGPATH, "pg_tblspc/%u/%u/%u",
+					 rnode.spcOid, rnode.dbOid, rnode.relNumber);
+#else
 		snprintf(path, MAXPGPATH, "pg_tblspc/%u/%u/%u",
 					 rnode.spcNode, rnode.dbNode, rnode.relNode);
+#endif
 	}
 
 	if (segno > 0)
