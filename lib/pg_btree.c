@@ -849,7 +849,8 @@ BTReaderInit(BTReader *reader, Relation rel)
 	/* Go to the fast root page. */
 	blkno = metad->btm_fastroot;
 	BTReaderReadPage(reader, blkno);
-	opaque = (BTPageOpaque) PageGetSpecialPointer(reader->page);
+	// pointer to both siblings in the tree
+	opaque = BTPageGetOpaque(reader->page);
 
 	/* Walk down to the left-most leaf page */
 	while (!P_ISLEAF(opaque))
@@ -857,24 +858,17 @@ BTReaderInit(BTReader *reader, Relation rel)
 		ItemId		firstid;
 		IndexTuple	itup;
 
+		/* ref: bt_downlink_missing_check() */
 		/* Get the block number of the left child */
 		firstid = PageGetItemId(reader->page, P_FIRSTDATAKEY(opaque));
 		itup = (IndexTuple) PageGetItem(reader->page, firstid);
-
-		if ((itup->t_tid).ip_posid == 0)
-		{
-			elog(DEBUG1, "pg_bulkload: failded in BTReaderInit for \"%s\"",
-				RelationGetRelationName(rel));
-			return -1;
-		}
-
-		blkno = ItemPointerGetBlockNumber(&(itup->t_tid));
+		blkno = BTreeTupleGetDownLink(itup);
 
 		/* Go down to children */
 		for (;;)
 		{
 			BTReaderReadPage(reader, blkno);
-			opaque = (BTPageOpaque) PageGetSpecialPointer(reader->page);
+			opaque = BTPageGetOpaque(reader->page);
 
 			if (!P_IGNORE(opaque))
 				break;
@@ -888,7 +882,7 @@ BTReaderInit(BTReader *reader, Relation rel)
 			blkno = opaque->btpo_next;
 		}
 	}
-	
+
 	return 1;
 }
 
